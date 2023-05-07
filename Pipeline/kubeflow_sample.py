@@ -2,16 +2,15 @@ import kfp
 from kfp import dsl
 from kfp.components import func_to_container_op
 
-# Define the pipeline components
 @func_to_container_op
-def read_data(data_url: str) -> str:
+def read_data(data_url):
     import pandas as pd
 
     data = pd.read_csv(data_url)
     return data.to_json()
 
 @func_to_container_op
-def preprocess_data(data_json: str) -> str:
+def preprocess_data(data_json):
     import pandas as pd
     from sklearn.preprocessing import LabelEncoder
 
@@ -26,12 +25,12 @@ def preprocess_data(data_json: str) -> str:
     return data_encoded.to_json()
 
 @func_to_container_op
-def split_data(data_encoded_json: str) -> tuple:
+def split_data(data_encoded_json):
     import pandas as pd
     from sklearn.model_selection import train_test_split
 
     data_encoded = pd.read_json(data_encoded_json)
-    target = 'target_variable_name'
+    target = 'isFlaggedFraud'
     X = data_encoded.drop(target, axis=1)
     y = data_encoded[target]
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -39,7 +38,7 @@ def split_data(data_encoded_json: str) -> tuple:
     return X_train.to_json(), X_test.to_json(), y_train.to_json(), y_test.to_json()
 
 @func_to_container_op
-def train_single_model(X_train_json: str, X_test_json: str, y_train_json: str, y_test_json: str, penalty: str, C: float) -> str:
+def train_single_model(X_train_json, X_test_json, y_train_json, y_test_json, penalty, C):
     import json
     import pandas as pd
     from sklearn.linear_model import LogisticRegression
@@ -58,7 +57,7 @@ def train_single_model(X_train_json: str, X_test_json: str, y_train_json: str, y
     return json.dumps({"model_params": {"penalty": penalty, "C": C}, "accuracy": accuracy})
 
 @func_to_container_op
-def select_best_model(*model_results_json: str) -> str:
+def select_best_model(*model_results_json):
     import json
 
     accuracies = []
@@ -76,8 +75,7 @@ def select_best_model(*model_results_json: str) -> str:
 
 
 @dsl.pipeline(name="ModelPipeline", description="A pipeline")
-def model_pipeline(data_url: str):
-    # Pipeline steps
+def model_pipeline(data_url):
     data_op = read_data(data_url)
     preprocessed_data_op = preprocess_data(data_op.output)
     split_data_op = split_data(preprocessed_data_op.output)
@@ -103,6 +101,5 @@ def model_pipeline(data_url: str):
 
     select_best_model_op = select_best_model(*[op.output for op in train_single_model_ops])
 
-pipeline_func = model_pipeline("your_csv_file.csv")
-pipeline_filename = pipeline_func.__name__ + ".pipeline.yaml"
+pipeline_func = model_pipeline("credit_filtered.csv")
 
